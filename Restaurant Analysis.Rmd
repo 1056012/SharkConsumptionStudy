@@ -1,0 +1,210 @@
+---
+title: "Restaurant Data Analysis"
+author: "Shathuki Perera"
+date: "2024-02-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Testing association between the restaurants selling shark and costumer base
+```{r}
+# Set new working directory
+setwd("C:/Users/shath/Desktop/Restaurant Data")
+```
+
+```{r}
+# Import the data
+data <- read.csv("R analysis.csv")
+```
+
+```{r}
+# Formatting the column names
+# Rename the column
+colnames(data)[colnames(data) == "How.old.is.the.restaurant...years."] <- "restaurant.age"
+```
+
+```{r}
+# Formatting more than one column names at a time
+colnames(data)[colnames(data) %in% c("Interview.code", "What.is.the.proportion.of.foreigners.in.your.restaurant.", "What.is.the.proportion.of.locals.in.your.restaurant.", "Do.you.sell.shark.or.ray.meat.", "mako.shark..including.long.and.short.fin.", "Beach.Road")] <- c("code", "prop.foreigner", "prop.local", "selling", "mako.shark", "beach.road")
+```
+
+```{r}
+# Print the updated column names
+print(colnames(data))
+```
+```{r}
+# Running a glm model
+# displaying selling (a dichotomous variable which equals 1 for restaurants selling shark and 0 for those not selling shark) as a function of prop.foreigner) proportion of international costumers
+plot(data$prop.foreigner,data$selling,col="blue4",
+        ylab = "Selling or Not Selling Shark", xlab = "Proportion of International Tourists in Restaurant")
+abline(h=c(0,1),col="light blue")
+```
+```{r}
+# Model fit
+fit.glm = glm(selling~prop.foreigner,data=data,family=binomial)
+```
+
+```{r}
+# fit a logistic model by means the function glm() and by means of the function gamlss() of the library gamlss
+library(gamlss)
+#fit.gamlss = gamlss(selling~prop.foreigner,data=data,family=BI)
+```
+
+```{r}
+#print results
+summary(fit.glm)
+```
+
+
+## Results: glm model
+Null Hypothesis (H0): There is no association between the proportion of foreigners (prop.foreigner) and the probability of a restaurant selling shark (selling)
+Alternative Hypothesis (H1): There is an association between the proportion of foreigners (prop.foreigner) and the probability of a restaurant selling shark.
+With the p-value of 0.996, there is not enough evidence to reject the null hypothesis. Based on the data and the model, there is no statistically significant association between the proportion of foreigners and the probability of a restaurant selling shark.
+This suggests that the proportion of foreigners (prop.foreigner) is not a significant predictor of whether a restaurant sells shark or not, according to the model. 
+
+The proportion of foreigners coming to the restaurant (prop.foreigner) alone, as indicated by the intercept, does not provide sufficient evidence to conclude that it has a significant impact on whether the restaurant is selling shark or not. 
+
+```{r}
+# Test for uncertainty 
+anova(fit.glm, test="Chisq")
+```
+
+## Result interpretation: Chi-squared test
+Chi test squared test was used here because the dependent variable is dichotomous (selling or not selling shark) and the independent variable is continuous (proportion of foreigners). The chi-squared test is used to determine whether there is a significant association between the two variables.
+
+Null Hypothesis (H0): There is no association between the proportion of foreigners (prop.foreigner) and the probability of a restaurant selling shark (selling)
+Alternative Hypothesis (H1): There is an association between the proportion of foreigners (prop.foreigner) and the probability of a restaurant selling shark.
+With the p-value of 0.996, there is not enough evidence to reject the null hypothesis. Based on the data and the model, there is no statistically significant association between the proportion of foreigners and the probability of a restaurant selling shark.
+
+This suggests that the proportion of foreigners (prop.foreigner) is not a significant predictor of whether a restaurant sells shark or not, according to the model.
+The proportion of foreigners coming to the restaurant (prop.foreigner) alone, as indicated by the intercept, does not provide sufficient evidence to conclude that it has a significant impact on whether the restaurant is selling shark or not.
+
+
+### Testing relationship between restaurant age and costumer base
+
+```{r}
+# Install and load ggplot2 if not already installed
+# install.packages("ggplot2")
+library(ggplot2)
+```
+
+```{r}
+# Convert 'restaurant.age' to numeric (if it's not already numeric)
+data$restaurant.age <- as.numeric(data$restaurant.age)
+
+# Scatter plot code
+ggplot(data, aes(x = restaurant.age, y = prop.foreigner)) +
+  geom_point() +
+  labs(title = "Scatter Plot of Restaurant Age vs Proportion of Foreigners",
+       x = "Restaurant Age",
+       y = "Proportion of Foreigners")
+```
+
+
+```{r}
+# colour code based on selling shark or not
+ggplot(data, aes(x = restaurant.age, y = prop.foreigner, color = factor(selling))) +
+  geom_point() +
+  scale_color_manual(values = c("0" = "blue", "1" = "red")) +
+  labs(title = "Scatter Plot of Restaurant Age vs Proportion of Foreigners",
+       x = "Restaurant Age",
+       y = "Proportion of Foreigners",
+       color = "Selling Shark")
+```
+
+```{r}
+# Remove rows with N/A data
+cleaned_data <- na.omit(data)
+
+# Check the data types
+str(cleaned_data)
+```
+
+
+```{r}
+# Convert variables to numeric 
+cleaned_data$restaurant.age <- as.numeric(cleaned_data$restaurant.age)
+cleaned_data$prop.foreigner <- as.numeric(cleaned_data$prop.foreigner)
+```
+```{r}
+# Run the correlation test
+cor_test_result <- cor.test(cleaned_data$restaurant.age, cleaned_data$prop.foreigner)
+
+# Print the correlation coefficient and p-value
+print(cor_test_result)
+```
+## Result interpretation:
+
+H0: There is no correlation between the restaurant age and the proportion of international tourists.
+H1: There is a correlation between the two variables
+
+With a p-value of 0.2622, we do not have enough evidence to reject the null hypothesis.
+The 95% confidence interval includes 0, suggesting that we cannot be confident that the true correlation is different from 0.
+The correlation coefficient is small (0.1434), indicating a weak positive correlation, but the lack of statistical significance suggests caution in making strong conclusions about the relationship between restaurant.age and prop.foreigner.
+In summary, based on this analysis, there is insufficient evidence to conclude that there is a significant correlation between the age of restaurants and the proportion of foreigners. The weak positive correlation observed might be due to chance, and the relationship is not statistically significant at the 0.05 significance level.
+
+### Testing relationship between restaurant age and selling shark
+
+```{r}
+# colour code based on selling shark or not
+ggplot(data, aes(x = restaurant.age, y = selling, color = factor(selling))) +
+  geom_point() +
+  scale_color_manual(values = c("0" = "blue", "1" = "red")) +
+  labs(title = "Scatter Plot of Restaurant Age vs Selling Shark",
+       x = "Restaurant Age",
+       y = "Selling Shark",
+       color = "Selling Shark")
+```
+
+
+```{r}
+# statistical test to see whether the age of the restaurant is associated with the probability of selling shark
+# Running a glm model
+fit.glm2 = glm(selling~restaurant.age,data=data,family=binomial)
+summary(fit.glm2)
+```
+
+## Interpretation
+Null Hypothesis (H0): There is no association between the restaurant age and the probability of a restaurant selling shark (selling)
+Alternative Hypothesis (H1): There is an association between the restaurant age and the probability of a restaurant selling shark.
+Based on the data and the model, there is no statistically significant association between the restaurant age and the probability of a restaurant selling shark. 
+In summary, while there is evidence that the intercept is significantly different from zero, the age of the restaurant, based on the given p-value, does not appear to have a statistically significant association with whether a restaurant is selling shark or not. 
+
+
+### Species Analysis
+
+```{r}
+#import the species count data
+data2 <- read.csv("species.csv")
+```
+
+```{r}
+#Plot the data
+# Assuming 'data2' is your dataset
+species_names <- colnames(data2)
+counts <- as.numeric(data2[1, ])  # Convert to a numeric vector
+
+# Format label names so that read Milk Shark instead of milk.shark 
+species_names <- gsub("\\.", " ", species_names)
+
+# Create a bar plot
+barplot(counts, names.arg = species_names, col = "blue",
+        main = "Species Counts", xlab = "Species", ylab = "Count")
+
+
+```
+### Testing relationship between whether restaurant is in a beach road versus selling shark or not
+```{r}
+# Fit model to test relationship between two sets of categorical data: "selling" and "beach.road"
+fit.glm3 = glm(selling~beach.road,data=data,family=binomial)
+summary(fit.glm3)
+```
+## Results interpretation
+Null Hypothesis (H0): There is no association between the restaurant being located in a beach road and the probability of a restaurant selling shark (selling)
+Alternative Hypothesis (H1): There is an association between the restaurant being located in a beach road and the probability of a restaurant selling shark.
+Based on the data and the model, there is no statistically significant association between the restaurant being located in a beach road and the probability of a restaurant selling shark.
+Although, all the restaurants in the dataset are located in a beach road, the p-value of 0.996 suggests that there is not enough evidence to reject the null hypothesis.
+

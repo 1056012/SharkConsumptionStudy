@@ -1,0 +1,29 @@
+﻿Actor,Family ,Count,Type
+Vendor ,Carcharhinidae,40,Shark
+Vendor ,Alopiidae,9,Shark
+Vendor ,Lamnidae,7,Shark
+Vendor ,Dasyatidae,58,Ray
+Vendor ,Mobulidae,55,Ray
+Vendor ,Rhinobatidae,17,Shark
+Vendor ,Rhinopteridae,21,Ray
+Vendor ,Aetobatidae,22,Ray
+Vendor ,Sphyrnidae,3,Shark
+Restaurant,Carcharhinidae,11,Shark
+Restaurant,Alopiidae,2,Shark
+Restaurant,Lamnidae,2,Shark
+Landing,Aetobatidae,14,Ray
+Landing,Carcharhinidae,1929,Shark
+Landing,Dasyatidae,302,Ray
+Landing,Echinorhinidae,1,Shark
+Landing,Ginglymostomatidae,1,Shark
+Landing,Gymnuridae,11,Ray
+Landing,Lamnidae,75,Shark
+Landing,Megachasmidae,1,Shark
+Landing,Mobulidae,447,Ray
+Landing,Odontaspididae,1,Shark
+Landing,Pseudocarchariidae,10,Shark
+Landing,"	
+Rhinidae",5,Shark
+Landing,Rhinopteridae,25,Ray
+Landing,Sphyrnidae,31,Shark
+Landing,Triakidae,3,Shark

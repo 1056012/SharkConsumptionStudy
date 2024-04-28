@@ -1,0 +1,170 @@
+---
+title: "Family Supply Chain Comparison"
+author: "Shathuki Perera"
+date: "2024-04-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Load the required pacakages
+library(tidyverse)
+library(viridis)
+library(gridExtra)
+library(ggplot2)
+library(patchwork)
+library(scales)
+library(stringr)
+library(RColorBrewer)
+library(ggplot2)
+library(ggpattern)
+```
+
+## Family Comparison between vendor and restaurant
+
+```{r}
+#Load the vendor data
+family_data<- read.csv("family.csv")
+```
+
+```{r}
+# Trim whitespace from the 'Actor' column
+family_data$Actor <- str_trim(family_data$Actor)
+
+# Filter data for Vendor and Restaurant separately
+vendor_data <- subset(family_data, Actor == "Vendor")
+restaurant_data <- subset(family_data, Actor == "Restaurant")
+landing_data <- subset(family_data, Actor == "Landing")
+```
+
+```{r}
+# Load the brewer palette library
+dark2_palette <- brewer.pal(8, "RdYlBu")
+dark2_palette
+```
+```{r}
+# Making the combined graph 
+#Colours for the families that will not get included, i.e the smaller ones
+
+custom_colors <- c(
+  "Alopiidae" = "#ABD9E9",
+  "Lamnidae" = "#FDBF6F",
+  "Carcharhinidae" = "#1f77b4",
+  "Dasyatidae" = "#d62728",
+  "Mobulidae" = "#ff7f0e",
+  "Rhinopteridae" = "#e377c2",
+  "Rhinobatidae" = "#9467bd",
+  "Aetobatidae" = "#17becf",
+  "Sphyrnidae" = "#bcbd22",
+  "Gymnuridae" = "#1B9E77",
+  "Pseudocarchariidae" = "#FDAE61", 
+  "Rhinidae" = "#F46D43",
+  "Triakidae" = "#FFFF33"
+)
+```
+
+
+```{r}
+vendor_pie <- ggplot(vendor_data, aes(x = "", y = Count, fill = Family)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = custom_colors) + # Apply custom colors
+  coord_polar("y", start = 0) +
+  ggtitle("Vendor Data") +
+  labs(fill = "Family") + # Keep the legend for Vendor pie
+  theme_minimal() +
+  theme() # Remove the legend
+
+# Create pie chart for Restaurant
+restaurant_pie <- ggplot(restaurant_data, aes(x = "", y = Count, fill = Family)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = custom_colors) + # Apply custom colors
+  coord_polar("y", start = 0) +
+  ggtitle("Restaurant Data") +
+  labs(fill = NULL) + # Remove the legend for Restaurant pie
+  theme_minimal() +
+  theme(legend.position = "none") # Remove the legend
+
+# Combine both pie charts with a shared legend
+combined_pie <- (vendor_pie + restaurant_pie) +
+  plot_layout(guides = 'collect')
+
+# Print the combined pie charts
+print(combined_pie)
+
+```
+```{r}
+# Create pie chart for Landing
+landing_pie <- ggplot(landing_data, aes(x = "", y = Count, fill = Family)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = custom_colors) + # Apply custom colors
+  coord_polar("y", start = 0) +
+  ggtitle("Landing Data") +
+  labs(fill = NULL) + # Remove the legend for Restaurant pie
+  theme_minimal()
+landing_pie
+```
+
+### Changing into a bar chart
+
+```{r}
+vendor_bar <- ggplot(vendor_data, aes(x = reorder(Family, -Count), y = Count, fill = Family, pattern = Type)) +
+  geom_bar_pattern(stat = "identity", pattern_fill = "black", pattern_angle = 45) +  
+  geom_text(aes(label = Count), vjust = -0.5, size = 3) + # Display sample size on top of the bars
+  scale_fill_manual(values = custom_colors) + # Apply custom colors
+  ggtitle("Vendor Data") +
+  labs(x = "Family", y = "Count", fill = "Family", pattern = "Type") + # Add axis labels and legend title
+  theme_minimal() +
+theme(legend.position = "right", axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) # Rotate x-axis labels by 45 degrees
+
+# Create the plot with stripes patterns for all bars
+restaurant_bar <- ggplot(restaurant_data, aes(x = reorder(Family, -Count), y = Count, fill = Family)) +
+  geom_bar_pattern(stat = "identity", pattern = "stripe", pattern_fill = "black") +  
+  geom_text(aes(label = Count), vjust = -0.5, size = 3) + # Display sample size on top of the bars
+  scale_fill_manual(values = custom_colors) + # Apply custom colors
+  ggtitle("Restaurant Data") +
+  labs(x = "Family", y = "Count", fill = "Family", pattern = "Type") + # Add axis labels and legend title
+  theme_minimal() +
+  theme(legend.position = "none", axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) # Rotate x-axis labels by 45 degrees
+
+# Combine both pie charts with a shared legend
+combined_bar <- (vendor_bar + restaurant_bar) +
+  plot_layout(guides = 'collect')
+
+# Print the combined pie charts
+print(combined_bar)
+
+
+```
+
+```{r}
+landing_bar <- ggplot(landing_data, aes(x = reorder(Family, -Count), y = Count, fill = Family)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Count), vjust = -0.5, size = 3) + # Display sample size on top of the bars
+  scale_fill_manual(values = custom_colors) + # Apply custom colors
+  ggtitle("Landing Data") +
+  labs(x = "Family", y = "Count", fill = "Family") + # Add axis labels and legend title
+  theme_minimal() +
+  theme(legend.position = "right", axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) # Adjust the size of x-axis text
+
+landing_bar
+```
+
+```{r}
+landing_bar <- ggplot(landing_data, aes(x = reorder(Family, -Count), y = Count, fill = Family, pattern = Type)) +
+  geom_bar_pattern(stat = "identity", pattern_fill = "black", pattern_angle = 45) +  
+  geom_text(aes(label = Count), vjust = -0.5, size = 3) + # Display sample size on top of the bars
+  scale_fill_manual(values = custom_colors) + # Apply custom colors
+  ggtitle("Landing Data") +
+  labs(x = "Family", y = "Count", fill = "Family", pattern = "Type") + # Add axis labels and legend title
+  theme_minimal() +
+  theme(legend.position = "none", axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) # Rotate x-axis labels by 45 degrees
+
+landing_bar
+```
+
+
+
+

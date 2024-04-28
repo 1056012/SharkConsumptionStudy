@@ -1,0 +1,853 @@
+---
+title: "Vendor Analysis"
+author: "Shathuki Perera"
+date: "2024-02-07"
+output: html_document
+---
+# Setting up data
+```{r}
+# set working directory 
+#setwd()
+```
+
+```{r, message=FALSE, warning=FALSE}
+# Load all necessdary packages the packages 
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(reshape2)
+library(viridis)
+library(gridExtra)
+library(RColorBrewer)
+library(stats)
+```
+
+```{r}
+# load the data 
+data <- read.csv("R data .csv")
+```
+
+```{r, results='hide'}
+# Formatting the column names
+colnames(data)[colnames(data) %in% c("Dry..D..or.Fresh..F..fish", "Biological.sex", "Age", "How.long.have.you.been.selling.fish.in.the.market.", "What.quantity.of.sharks..kg..do.you.sell.per.day.", "What.quantity.of.rays..kg..do.you.sell.per.day.", "Which.species.of.shark.and.ray.do.you.sell...Show.pictures.", "species", "How.much.is.a.kg.of.shark...Rps.", "How.much.is.a.kg.of.ray...Rps.")] <- c("type", "sex", "age", "time.selling", "quantity.shark", "quantity.ray", "species.sold", "species.preferred", "shark.price", "ray.price" )
+```
+
+### Comparing the quantities of shark versus ray sold
+
+```{r, results = 'hide'}
+# I am using a paired t-test for this
+# check the data types
+str(data$quantity.shark)
+str(data$quantity.ray)
+```
+
+```{r, warning=FALSE}
+# Convert columns to numeric
+data$quantity.shark <- as.numeric(data$quantity.shark)
+data$quantity.ray <- as.numeric(data$quantity.ray)
+```
+
+```{r}
+# Performing an independent t-test, as the data is not paired for all values and some vendors only sold shark, or ray. 
+# Create a long format of the data for plotting
+data_long <- pivot_longer(data, cols = c(quantity.shark, quantity.ray), names_to = "Species", values_to = "Quantity")
+```
+
+```{r}
+# Independent samples t-test
+t_test_result <- t.test(Quantity ~ Species, data = data_long)
+
+# Print the t-test results
+cat("Independent samples t-test results:\n")
+print(t_test_result)
+```
+
+# Non-parametric test: Wilcoxon signed rank test 
+```{r}
+# Perform Wilcoxon signed-rank test
+wilcox_test_result <- wilcox.test(data$quantity.shark, data$quantity.ray, paired = TRUE, na.rm = TRUE)
+
+# Print the result
+print(wilcox_test_result)
+```
+```{r}
+# Create a boxplot for visualisation
+ggplot(data_long, aes(x = Species, y = Quantity, fill = Species)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Shark and Ray Quantities",
+       x = "Species",
+       y = "Quantity") +
+  scale_fill_manual(values = c("quantity.shark" = "steelblue", "quantity.ray" = "coral")) +
+  theme_minimal()
+
+```
+
+```{r}
+# Removing the outliers
+ggplot(data_long, aes(x = Species, y = Quantity, fill = Species)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Shark and Ray Quantities",
+       x = "Species",
+       y = "Quantity") +
+  scale_fill_manual(values = c("quantity.shark" = "steelblue", "quantity.ray" = "coral")) +
+  theme_minimal() +
+  coord_cartesian(ylim = c(0, 300))
+
+```
+
+Interpretation:
+The negative t-value (-0.52524) suggests that, on average, there is a slightly lower quantity of shark compared to ray, but the magnitude is not very large.
+We do not have sufficient evidence to conclude that there is a significant difference in the quantities of shark and ray sold by vendors, and the p-value is greater than the commonly used significance level of 0.05. Thus, based on the t-test results, we do not have strong evidence to suggest a significant difference between the quantity of shark and ray sold. 
+The point is also proven by the Wilcoxon signed rank test- not significant. 
+
+There are also some obvious anomalies of data points which are very big. This is likely to be due to the differences between the retail vendors versus wholesale vendors. 
+
+```{r}
+# Remove rows with NAs in either quantity.shark or quantity.ray
+data_clean <- na.omit(data[c("quantity.shark", "quantity.ray")])
+
+# Calculate summary statistics for Shark and Ray separately
+summary_stats <- data_clean %>%
+  summarize(
+    mean_quantity_shark = mean(quantity.shark),
+    max_quantity_shark = max(quantity.shark, na.rm = TRUE),
+    min_quantity_shark = min(quantity.shark, na.rm = TRUE),
+    sd_quantity_shark = sd(quantity.shark, na.rm = TRUE),
+    mean_quantity_ray = mean(quantity.ray),
+    max_quantity_ray = max(quantity.ray, na.rm = TRUE),
+    min_quantity_ray = min(quantity.ray, na.rm = TRUE),
+    sd_quantity_ray = sd(quantity.ray, na.rm = TRUE)
+  )
+
+# Print summary statistics
+print(summary_stats)
+```
+
+### Comparing the quantity of shark versus ray according to their location
+```{r}
+# Replace NA with 0 for interviewees who didn't sell a particular type
+data[is.na(data)] <- 0
+```
+
+```{r}
+# Create a long format of the data for plotting
+data_long2 <- pivot_longer(data, cols = c(quantity.shark, quantity.ray), names_to = "Species", values_to = "Quantity")
+
+# Specify the order of levels for 'Location' and remove unwanted levels
+data_long2$Location <- factor(data_long2$Location, levels = c('MH', 'FM', 'K'), labels = c('Fisheries Harbour', 'Fish Market', 'Kamachchode Market'))
+```
+
+```{r}
+# Create box plots for shark and ray quantities within each location, with the same scale
+# Making the scale the same for all plots 
+ggplot(data_long2, aes(y = Quantity, fill = Species)) +
+  geom_boxplot(position = "dodge") +
+  labs(title = "Comparison of Shark and Ray Quantities by Location",
+       x = "Location",
+       y = "Quantity") +
+  scale_fill_manual(values = c("quantity.shark" = "steelblue", "quantity.ray" = "coral")) +
+  theme_minimal() +
+  facet_wrap(~Location, scales = "free_y")+
+  theme(axis.text.x = element_text(size = 7.5))+ 
+coord_cartesian(ylim = c(0, 300))
+```
+
+```{r}
+# Statistical test to check for significance
+# Perform pairwise comparisons for each market
+pairwise_tests <- data_long2 %>%
+  group_by(Location) %>%
+  do(pairwise_test = wilcox.test(Quantity ~ Species, data = ., paired = TRUE, exact = FALSE, na.rm = TRUE))
+
+# Print the results
+print(pairwise_tests)
+```
+
+Interpretation:
+Here we can see that most of the anomalies are in the Fisheries Harbour. This makes contexual sense, as this is where most of the wholesale traders were present, thus a greater amount of shark and ray are traded here. Also, vendors at the Negombo Fish Market would travel to the Harbour in the morning to get shark and ray to sell later on the day in the market. 
+
+```{r}
+# Test for significance in the quantities of shark and ray based on location
+# Perform Wilcoxon signed-rank test
+wilcox_test_result2 <- wilcox.test(data$quantity.shark, data$quantity.ray, paired = TRUE, na.rm = TRUE, exact = FALSE)
+```
+
+```{r}
+#see the results
+print(wilcox_test_result2)
+```
+# Comparing shark and ray quantities according to type, instead of location
+
+```{r}
+# Plotting boxplots for shark and ray quantities separated by type
+ggplot(data_long, aes(x = Species, y = Quantity, fill = Species)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Shark and Ray Quantities", x = "Species", y = "Quantity") +
+  scale_fill_manual(values = c("steelblue", "coral"), name = "Species", labels = c("Shark", "Ray")) +
+  theme_minimal() +
+  coord_cartesian(ylim = c(0, 300)) +
+  facet_wrap(~ type, labeller = labeller(type = c("D" = "Dry Fish", "F" = "Fresh Fish")))
+```
+
+```{r}
+# ANOVA for quantity against type
+# Perform ANOVA for shark prices across type
+anova_shark_quantitytype <- aov(quantity.shark ~ type, data = data)
+summary(anova_shark_quantitytype)
+
+# Perform ANOVA for ray prices across type
+anova_ray_quantitytype <- aov(quantity.ray ~ type, data = data)
+summary(anova_ray_quantitytype)
+
+##No significance of quantity depending on type: either dry or fresh
+```
+
+```{r}
+# ANOVA for quantity against location
+# Perform ANOVA for shark quantity across locations
+anova_shark_qlocation <- aov(quantity.shark ~ Location, data = data)
+summary(anova_shark_qlocation)
+
+# Perform ANOVA for ray quantity across locations
+anova_ray_qlocation <- aov(quantity.ray ~ Location, data = data)
+summary(anova_ray_qlocation)
+```
+
+```{r}
+## comparing the mean and standard deviations of quantity ray and shark between locations:
+# Calculate averages and standard deviations
+summary_stats <- data_long2 %>%
+  group_by(Species) %>%
+  summarize(avg_quantity = mean(Quantity),
+            sd_quantity = sd(Quantity))
+summary_stats
+```
+
+### Comparing the prices of shark versus ray 
+
+```{r}
+#check data type
+str(data$shark.price)
+str(data$ray.price)
+
+# change data type
+# Convert columns to numeric
+data$shark.price <- as.numeric(data$shark.price)
+data$ray.price <- as.numeric(data$ray.price)
+```
+
+```{r}
+# Descriptive statistics
+# Calculate mean and standard deviation for shark.price
+mean_shark_price <- mean(data$shark.price, na.rm = TRUE)
+sd_shark_price <- sd(data$shark.price, na.rm = TRUE)
+
+# Calculate mean and standard deviation for ray.price
+mean_ray_price <- mean(data$ray.price, na.rm = TRUE)
+sd_ray_price <- sd(data$ray.price, na.rm = TRUE)
+
+# Print the results
+cat("Mean Shark Price:", mean_shark_price, "\n")
+cat("Standard Deviation Shark Price:", sd_shark_price, "\n")
+cat("Mean Ray Price:", mean_ray_price, "\n")
+cat("Standard Deviation Ray Price:", sd_ray_price, "\n")
+
+```
+
+```{r}
+# Descriptive statistics based on location
+# Calculate mean and standard deviation for shark.price and ray.price separately for each location
+summary_stats <- data %>%
+  group_by(Location) %>%
+  summarise(
+    mean_shark_price = mean(shark.price, na.rm = TRUE),
+    sd_shark_price = sd(shark.price, na.rm = TRUE),
+    mean_ray_price = mean(ray.price, na.rm = TRUE),
+    sd_ray_price = sd(ray.price, na.rm = TRUE)
+  )
+
+# Print the summary statistics
+print(summary_stats)
+```
+
+```{r}
+# Perform ANOVA for shark prices
+anova_shark <- aov(shark.price ~ Location, data = data)
+
+# Perform Tukey's HSD test for shark prices
+tukey_shark <- TukeyHSD(anova_shark)
+print(tukey_shark)
+
+# Perform ANOVA for ray prices
+anova_ray <- aov(ray.price ~ Location, data = data)
+
+# Perform Tukey's HSD test for ray prices
+tukey_ray <- TukeyHSD(anova_ray)
+print(tukey_ray)
+```
+
+```{r}
+data_long3 <- pivot_longer(data, cols = c(shark.price, ray.price), names_to = "species", values_to = "price")
+
+# Plotting boxplot with ggplot2
+ggplot(data_long3, aes(x = species, y = price, fill = species)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Shark and Ray Prices", x = "Species", y = "Price") +
+  theme_minimal() +
+  scale_fill_manual(values = c("steelblue", "coral"))
+```
+# Looking at Price differences between Shark and Ray, and also between Type
+```{r}
+# Filter data for 'F' (fresh fish) and 'D' (dry fish) types
+data_fresh <- filter(data_long3, type == 'F')
+data_dry <- filter(data_long3, type == 'D')
+
+# Combine data for fresh and dry fish
+combined_data <- rbind(data_fresh, data_dry)
+
+# Define custom labels for facet_wrap
+custom_labels <- c("D" = "Dry Fish", "F" = "Fresh Fish")
+
+# Plotting combined boxplots for fresh and dry fish with custom facet labels
+ggplot(combined_data, aes(x = species, y = price, fill = species)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Shark and Ray Prices based on Type", x = "Species", y = "Price") +
+  theme_minimal() +
+  scale_fill_manual(values = c("steelblue", "coral")) +
+  facet_wrap(~ type, labeller = labeller(type = custom_labels))
+```
+
+```{r}
+# Cleaning data set to run statistical test 
+# Select only the columns 'type', 'species', and 'price' in combined_data
+combined_data <- combined_data %>%
+  select(type, species, price)
+```
+
+```{r}
+# Filter data for shark 
+shark_data <- combined_data %>%
+  filter(grepl("shark.price", species))
+# Running test for shark 
+# Perform Mann-Whitney U test
+wilcox.test(price ~ type, data = shark_data)
+
+#p= 0.0003605 is significant 
+```
+```{r}
+# Filter data for ray 
+ray_data <- combined_data %>%
+  filter(grepl("ray.price", species))
+# Running test for shark 
+# Perform Mann-Whitney U test
+wilcox.test(price ~ type, data = ray_data)
+
+#significant p value
+```
+
+```{r}
+# Calculate the mean price for 'D' type
+mean_price_D <- mean(shark_data$price[shark_data$type == 'D'], na.rm = TRUE)
+
+# Calculate the mean price for 'F' type
+mean_price_F <- mean(shark_data$price[shark_data$type == 'F'], na.rm = TRUE)
+
+# Print the mean prices
+cat("Mean price for 'D' type:", mean_price_D, "\n")
+cat("Mean price for 'F' type:", mean_price_F, "\n")
+
+```
+
+```{r}
+# Calculate the mean price for 'D' type in ray_data
+mean_price_D_ray <- mean(ray_data$price[ray_data$type == 'D'], na.rm = TRUE)
+
+# Calculate the mean price for 'F' type in ray_data
+mean_price_F_ray <- mean(ray_data$price[ray_data$type == 'F'], na.rm = TRUE)
+
+# Print the mean prices for ray_data
+cat("Mean price for 'D' type in ray_data:", mean_price_D_ray, "\n")
+cat("Mean price for 'F' type in ray_data:", mean_price_F_ray, "\n")
+
+```
+
+```{r}
+# Testing for normality 
+# Example Q-Q plot for shark prices
+qqnorm(data$shark.price)
+qqline(data$shark.price)
+
+# Shapiro-Wilk test for shark prices
+shapiro.test(data$shark.price)
+
+# Example boxplot
+boxplot(shark.price ~ ray.price, data = data)
+```
+
+```{r}
+# To test if the price of ray and shark are significantly different from each other, I have used the Wilcoxon signed-rank test.
+# Perform Wilcoxon signed-rank test
+wilcox_test_result2 <- wilcox.test(data$shark.price, data$ray.price, paired = TRUE, na.rm = TRUE)
+
+# Print the result
+print(wilcox_test_result2)
+```
+Interpretation:
+The extremely small p-value (1.565e-05) suggests strong evidence that there is a significant difference in the price between sharks and rays. 
+
+```{r}
+# ANOVA for price against location
+# Perform ANOVA for shark price across locations
+anova_shark_plocation <- aov(shark.price ~ Location, data = data)
+summary(anova_shark_plocation)
+
+# Perform ANOVA for ray price across locations
+anova_ray_plocation <- aov(ray.price ~ Location, data = data)
+summary(anova_ray_plocation)
+```
+
+```{r}
+# Load the TukeyHSD function from the stats package
+library(stats)
+
+# Perform Tukey's HSD test for shark price across locations
+tukey_shark_plocation <- TukeyHSD(anova_shark_plocation)
+print(tukey_shark_plocation)
+
+# Perform Tukey's HSD test for ray price across locations
+tukey_ray_plocation <- TukeyHSD(anova_ray_plocation)
+print(tukey_ray_plocation)
+
+```
+
+
+### Plot for the species count for all unique species mentioned by vendors
+# Question 'What species of shark and ray do you sell?'
+
+```{r}
+## insert new data set with species without NAs
+species.count <- read.csv("species.count.csv")
+```
+
+```{r}
+my_palette <- c(
+  "Alopiidae" = "#ff7f0e",
+  "Lamnidae" = "#9467bd",
+  "Carcharhinidae" = "#2ca02c",
+  "Dasyatidae" = "#d62728",
+  "Mobulidae" = "#8c564b",
+  "Rhinobatidae" = "#e377c2",
+  "Rhinopteridae" = "#7f7f7f",
+  "Aetobatidae" = "#1f77b4",
+  "Sphyrnidae" = "#bcbd22"
+)
+```
+
+
+```{r}
+species.count$Species <- factor(species.count$Species, levels = species.count$Species[order(-species.count$Count)])
+```
+
+```{r}
+# Create the bar chart using ggplot2 with color based on Type
+plot1.0 <- ggplot(species.count, aes(x = Species, y = Count, fill = Type)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Count of Species: Shark vs. Rays",
+       x = "Species",
+       y = "Count") +
+  scale_fill_manual(values = c("steelblue", "coral")) +  # Specify colors
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1),
+        legend.text = element_text(size = 7),  
+        legend.title = element_text(size = 7),
+        axis.text.y = element_text(size = 6),
+        plot.title = element_text(size = 10))
+plot1.0
+```
+```{r}
+# Reorder Species based on Family
+species.count$Species <- factor(species.count$Species, levels = unique(species.count$Species[order(species.count$Family)]))
+
+# Plot
+plot2.0 <- ggplot(species.count, aes(x = Species, y = Count, fill = Family)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Species", y = "Count", title = "Count of Species by Family") +
+  scale_fill_manual(values = my_palette) +  # Use custom color palette
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1),
+        legend.text = element_text(size = 7),  
+        legend.title = element_text(size = 7),  
+        axis.text.y = element_text(size = 6),
+        plot.title = element_text(size = 10)) +
+  guides(fill = guide_legend(title = "Family"))  # Add legend title
+
+plot2.0
+```
+
+```{r}
+# Arrange plots side by side
+grid.arrange(plot1.0, plot2.0, ncol = 2)
+```
+
+### Salient Analysis for the species most preferred 
+## Frequency of the listed species
+# Question 'Which species of shark and ray do you trade the most?'
+
+```{r}
+# Because the species are listed, I will separate them and split them into separate rows
+data_split <- data %>%
+  separate_rows(species.preferred, sep = ", ") #creates new row for each species mentioned
+```
+
+```{r}
+#cleaning up any leading or trailing white space 
+data_split$species.preferred <- trimws(data_split$species.preferred)
+```
+
+```{r}
+#Calculating the frequency of each species
+species_frequency <- data_split %>%
+  group_by(species.preferred) %>%
+  summarise(frequency = n())
+```
+
+```{r}
+#Ranking and visualising the data
+ranked_species1 <- species_frequency %>%
+  arrange(desc(frequency))
+```
+
+```{r}
+## Trying colours
+ranked_species1 <- species_frequency %>%
+  arrange(desc(frequency))
+
+# Define a categorical colour palette
+colour_palette <- viridisLite::viridis(length(ranked_species1$species.preferred), option = "D")
+
+# Bar plot with colour, smaller and angled x-axis labels
+ggplot(ranked_species1, aes(x = species.preferred, y = frequency, fill = species.preferred)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = colour_palette) +  # Apply color palette
+  labs(title = "Salient Species Analysis",
+       x = "Species",
+       y = "Frequency") +
+  theme(axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) +
+  guides(fill = FALSE)  # Remove legend
+```
+
+### Calculating salience using equation
+
+```{r}
+# Creating new data set for salient analysis
+data1 <- data %>%
+  select(Interview.Code, species.preferred)
+```
+
+```{r}
+# Counting the number of interviews before removing N/A 
+num_interviews_before_NA <- nrow(data1)
+```
+
+```{r}
+#Making data1.0 
+# Function to split species and add order column
+split_species <- function(df) {
+  df %>%
+    filter(species.preferred != "N/A") %>%
+    mutate(species.preferred = strsplit(as.character(species.preferred), ", ")) %>%
+    unnest(species.preferred) %>%
+    mutate(species.preferred = str_squish(species.preferred)) %>%
+    group_by(Interview.Code) %>%
+    mutate(order = row_number()) %>%
+    ungroup()
+}
+
+# Applying the function to your original data
+data1.0 <- split_species(data1)
+```
+
+```{r}
+#Calculating salience from cleaned data
+calculate_salience <- function(df) {
+  # Calculate salience scores for each species
+  salience_scores <- df %>%
+    group_by(Interview.Code) %>%
+    mutate(salience = (1 + length(species.preferred) - order) / length(species.preferred))
+
+  return(salience_scores)
+}
+
+# Apply the function to your data1.0 dataframe
+SC <- calculate_salience(data1.0)
+```
+
+```{r}
+# Adding column to show whether it is a shark or a ray 
+# Reorder the data frame based on salience scores
+SC <- SC[order(SC$salience, decreasing = TRUE), ]
+
+# Create a new column for color based on the presence of 'shark' in the species name
+SC$type <- ifelse(grepl("shark", tolower(SC$species.preferred)), "Sharks", "Rays")
+
+# Display the result       
+print(SC)
+```
+
+```{r}
+# Calculate the mean rank for Sharks vs Rays
+mean_rank <- SC %>%
+  group_by(type) %>%
+  summarize(mean_rank = mean(order))
+
+# Calculate the range of salience scores for Sharks vs Rays
+score_range <- SC %>%
+  group_by(type) %>%
+  summarize(min_salience = min(salience),
+            max_salience = max(salience),
+            range_salience = max_salience - min_salience)
+
+# Combine the results into a single data frame
+summary_stats <- bind_rows(mean_rank, score_range)
+
+# Print the summary statistics
+print(summary_stats)
+```
+
+```{r}
+#Anova test to see if the salience scores are different from Sharks versus Rays
+# Fit the ANOVA model
+anova_result <- aov(salience ~ type, data = SC)
+
+# Print the ANOVA table
+print(summary(anova_result))
+```
+
+## Culutural Salience Calculations
+
+```{r}
+# Calculate cultural salience for each unique species
+cultural_salience_df <- SC %>%
+  group_by(species.preferred) %>%
+  summarise(CS = sum(salience) / n_distinct(Interview.Code))
+```
+
+```{r}
+# Calculate cultural salience for each unique species by adding up the salience and dividing by the total number of participants in the study (n=59)
+cultural_salience_df <- SC %>%
+  group_by(species.preferred) %>%
+  summarise(CS = sum(salience) / num_interviews_before_NA )
+
+# Display the result
+print(cultural_salience_df)
+```
+
+```{r}
+# Reorder the data frame based on salience scores
+cultural_salience_df <- cultural_salience_df[order(cultural_salience_df$CS, decreasing = TRUE), ]
+# Create a new column for color based on the presence of 'shark' in the species name
+cultural_salience_df$color <- ifelse(grepl("shark", tolower(cultural_salience_df$species.preferred)), "Sharks", "Rays")
+```
+
+```{r}
+# Create a custom color palette
+my_palette <- c("Sharks" = "#1f77b4", "Rays" = "#ff7f0e")
+
+# Create the bar chart using ggplot2 with color based on species
+CS_plot <- ggplot(cultural_salience_df, aes(x = reorder(species.preferred, -CS), y = CS, fill = color)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Species",
+       y = "Cultural Salience") +
+  scale_fill_manual(values = my_palette, name = "Species", labels = c("Ray", "Shark")) +  # Use custom color palette with legend
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) +
+  guides(fill = guide_legend(title = "Species"))
+
+CS_plot
+```
+
+```{r}
+# Calculating statistical test to test if the cultural salience of species are significant from each other
+# Shapiro-Wilk test for normality
+shapiro.test(cultural_salience_df$CS)
+# The p-value is less than 0.05, so the data is not normally distributed and we will use the non-parametric Kruskal-Wallis test
+```
+
+```{r}
+# Kruskal-Wallis test 
+kruskal.test(CS ~ species.preferred, data = cultural_salience_df)
+```
+
+### Sankey Diagram for views on Protection
+
+```{r}
+library(htmltools)
+library(highcharter)
+library(htmlwidgets)
+```
+
+```{r}
+sankey.data1.0 <- read.csv("views.csv")
+```
+
+```{r}
+head(sankey.data1.0)
+```
+
+```{r}
+# First Sankey diagram
+s1 <- hchart(data_to_sankey(sankey.data1.0), "sankey", name = "Fish Type and Views on Protection")
+```
+
+```{r}
+# Add title and caption
+s1 <- s1 %>% hc_title(text = "Fish Type and Location based Views on Protection", align = "center")
+s1
+```
+
+## Adding Value labels and percentages to the Sankey 
+```{r}
+# Get the count of the fish type and create new column which 
+# has the name as well as the count in it
+sankey.data2.0 <- sankey.data1.0 %>%
+  dplyr::group_by(Fish.Type)%>%
+      dplyr::tally()%>%
+      dplyr::mutate(perc = n/sum(n))%>%
+dplyr::mutate(Fish.TypelNew = paste(Fish.Type, n, '(', round(perc* 100,1) , '%)'))%>%
+dplyr::select(-n, - perc)
+sankey.data2.0
+```
+
+```{r}
+sankeyMain <- merge (sankey.data1.0, sankey.data2.0, by = "Fish.Type")
+
+# Get the count of the Market and create new column which 
+# has the Market as well as the count in it
+
+sankey.data3.0 <- sankeyMain %>%
+  dplyr::group_by(Market)%>%
+  dplyr::tally()%>%
+  dplyr::mutate(perc = n/sum(n))%>%
+  dplyr::mutate(MarketNew = paste(Market, n, '(', round(perc* 100,1) , '%)'))%>%
+  dplyr::select(-n, - perc)
+
+sankeyMain <- merge (sankeyMain, sankey.data3.0, by = "Market")
+```
+
+```{r}
+# Get the count of the Views and create new column which
+# has the Views as well as the count in it
+
+sankey.data4.0 <- sankeyMain %>%
+  dplyr::group_by(Views)%>%
+  dplyr::tally()%>%
+  dplyr::mutate(perc = n/sum(n))%>%
+  dplyr::mutate(ViewsNew = paste(Views, n, '(', round(perc* 100,1) , '%)'))%>%
+  dplyr::select(-n, - perc)
+
+sankeyMain <- merge (sankeyMain, sankey.data4.0, by = "Views")
+```
+
+```{r}
+sankeyFinal <- sankeyMain %>%
+  dplyr::select(Fish.TypelNew, MarketNew, ViewsNew)
+
+sankeyFinal
+```
+
+```{r}
+library(highcharter)
+
+# Define colors
+publication_colors <- c("#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#bcbd22")
+
+# Create the Sankey diagram
+s2 <- hchart(data_to_sankey(sankeyFinal), "sankey", name = "Fish Type and Location based Views on Protection") %>%
+  hc_title(text= "Fish Type and Location based Views on Protection") %>%
+  hc_colors(c(publication_colors))  # Set colors
+
+s2
+
+```
+
+
+```{r}
+# save the sankey diagram as an image
+saveWidget(s2, "sankey.html", selfcontained = TRUE)
+```
+
+# Sankey diagaram for the restaurant data views
+```{r}
+sankey.data2.0 <- read.csv("views.restaurant.csv")
+```
+
+```{r}
+# Draw the sankey diagram
+# First Sankey diagram
+s2.1 <- hchart(data_to_sankey(sankey.data2.0), "sankey", name = "Restaurant Views on Protection")
+s2.1
+```
+## Chi squared test 
+
+```{r}
+sankey.chi <- read.csv("views.age.csv")
+print(sankey.chi)
+```
+
+```{r}
+# Define the age categories
+age_categories <- c('Below 30', '30-40', '40-50', '50-60', '60+')
+
+# Create a new column 'Age.Category' based on 'Age'
+sankey.chi$Age.Category <- cut(sankey.chi$Age, breaks = c(-Inf, 30, 40, 50, 60, Inf), labels = age_categories)
+```
+
+
+```{r}
+# Convert 'Age.Category' to a factor with the specified levels
+sankey.chi$Age.Category <- factor(sankey.chi$Age.Category, levels = age_categories)
+
+# Check the structure of the data frame to confirm the changes
+str(sankey.chi)
+```
+
+```{r}
+# Create the contingency table and perform the chi-squared test
+contingency_table1 <- table(sankey.chi$Views, sankey.chi$Age.Category)
+chi_sq_result <- chisq.test(contingency_table1)
+
+# Print the result
+print(chi_sq_result)
+
+#Not significant (p=0.469)
+```
+
+```{r}
+# Create a contingency table for 'Market' and 'Views'
+contingency_table_market_views <- table(sankey.chi$Market, sankey.chi$Views)
+
+# Perform chi-squared test
+chi_sq_result_market_views <- chisq.test(contingency_table_market_views)
+
+# Print the result
+print(chi_sq_result_market_views)
+
+#Not significant (p=0.3455)
+```
+
+```{r}
+contingency_table_market <- table(sankey.chi$Fish.Type, sankey.chi$Views)
+
+# Perform chi-squared test
+chi_sq_result_market<- chisq.test(contingency_table_market)
+
+# Print the result
+print(chi_sq_result_market)
+
+#Not significant (p=0.0.4473)
+```
+
+
+
+
